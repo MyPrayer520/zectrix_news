@@ -1,10 +1,11 @@
 import requests
+import os
 import json
 import time
 from datetime import datetime
 
-API_KEY = "your_api_key"
-DEVICE_ID = "your_device_id"
+API_KEY = os.environ.get("API_KEY", "")
+DEVICE_ID = os.environ.get("DEVICE_ID", "")
 TARGET_URL = f"https://cloud.zectrix.com/open/v1/devices/{DEVICE_ID}/display/structured-text"
 INTERVAL = 600
 
@@ -125,5 +126,4 @@ def main():
     time.sleep(INTERVAL)
 
 if __name__ == "__main__":
-    while True:
-        main()
+    main()
