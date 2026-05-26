@@ -1,13 +1,15 @@
-import requests
 import os
+import requests
 import json
 import time
 from datetime import datetime
 
+# ==========================================
+# 核心参数：从 GitHub Actions 环境变量读取
+# ==========================================
 API_KEY = os.environ.get("API_KEY", "")
 DEVICE_ID = os.environ.get("DEVICE_ID", "")
 TARGET_URL = f"https://cloud.zectrix.com/open/v1/devices/{DEVICE_ID}/display/structured-text"
-INTERVAL = 600
 
 DATA_SOURCES = [
     {
@@ -79,7 +81,12 @@ def format_top10(data, source):
                 item_title = item_title[:max_length-2] + "..."
             formatted_items.append(f"{i}.{item_title}")
     
-    update_time = datetime.now().strftime("%Y/%m/%d %H:%M")
+    # 注意：Actions 服务器默认是 UTC 时间，比北京时间慢 8 小时
+    # 为了在屏幕上显示正确的北京时间，需要增加 8 小时的时差补偿
+    from datetime import timedelta
+    beijing_time = datetime.utcnow() + timedelta(hours=8)
+    update_time = beijing_time.strftime("%Y/%m/%d %H:%M")
+    
     body = f"{title}        更新时间：{update_time}\n" + "\n".join(formatted_items)
     
     return {
@@ -106,8 +113,13 @@ def send_to_api(payload):
         return False
 
 def main():
-    print(f"开始运行 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    beijing_time = datetime.utcnow() + timedelta(hours=8)
+    print(f"开始运行 - {beijing_time.strftime('%Y-%m-%d %H:%M:%S')} (北京时间)")
     
+    if not API_KEY or not DEVICE_ID:
+        print("致命错误：API_KEY 或 DEVICE_ID 未找到，请检查 GitHub Secrets 配置！")
+        return
+
     for source in DATA_SOURCES:
         print(f"\n获取 {source['name']} 数据...")
         data = fetch_data(source["url"])
@@ -115,15 +127,13 @@ def main():
             payload = format_top10(data, source)
             if payload:
                 payload["pageId"] = source["pageId"]
-                print(f"数据内容:\n{payload['body']}")
+                print(f"准备推送数据内容:\n{payload['body']}")
                 send_to_api(payload)
             else:
-                print(f"{source['name']} 数据格式错误")
+                print(f"{source['name']} 数据格式解析错误")
         else:
-            print(f"{source['name']} 获取数据失败")
-    
-    print(f"\n等待{INTERVAL}秒后再次执行...")
-    time.sleep(INTERVAL)
+            print(f"{source['name']} 获取网络数据失败")
 
 if __name__ == "__main__":
+    from datetime import timedelta
     main()
